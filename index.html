@@ -393,8 +393,8 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
   <div class="card hk" id="hkcard">
     <div class="hkhead"><div class="hkicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff2d55" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.3 2.4h2c.7-1.2 2.2-2.4 4.3-2.4 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21Z"/></svg></div><div style="flex:1;min-width:0"><h2>Apple Santé & Apple Watch</h2><p class="muted small" id="hksync">Pas encore connecté</p></div></div>
     <div id="hkbody"></div>
-    <div class="row" style="margin-top:14px"><button class="btn" style="flex:1" onclick="importHealth()">↓ Importer</button><button class="btn secondary" onclick="healthGuide()">Connecter</button></div>
-    <button class="link" style="margin-top:10px;width:100%" onclick="stepsModal()">✎ Saisir mes pas à la main</button>
+    <div class="row" style="margin-top:14px"><button class="btn" style="flex:1" onclick="stepsModal()">👟 Ajouter mes pas</button><button class="btn secondary" onclick="importHealth()">↓ Importer</button></div>
+    <button class="link" style="margin-top:10px;width:100%" onclick="healthGuide()">⌚ Relier Apple Santé / Apple Watch (facultatif)</button>
   </div>
   <div class="card sleep" id="sleepchart">
     <div class="row"><h2>☾ Sommeil · 7 nuits</h2><span class="muted small" id="sleepavg"></span></div>
@@ -1124,7 +1124,7 @@ function removeMeal(id){if(!confirm('Supprimer ce repas ?'))return;db.meals=db.m
 function renderHK(){
   const h=db.health||{},tk=today(),d=h[tk];
   const last=Object.keys(h).sort().at(-1);
-  $('hksync').textContent=db.coach.hkAt?'Dernière synchro : '+new Date(db.coach.hkAt).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}):(last?'Saisie manuelle · « Connecter » pour relier ta montre':'Pas encore connecté · appuie sur « Connecter »');
+  $('hksync').textContent=db.coach.hkAt?'Dernière synchro : '+new Date(db.coach.hkAt).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}):(last?'Saisie manuelle':'Ajoute tes pas du jour en un appui');
   if(!last){$('hkbody').innerHTML='<p class="muted small" style="margin-top:12px;line-height:1.5">Récupère tes pas, tes calories actives, tes minutes d’exercice, ta fréquence cardiaque au repos, ton sommeil et ton poids, y compris ceux de ton Apple Watch.</p>';return}
   const v=d||h[last],f=x=>x==null?'—':Math.round(x).toLocaleString('fr-FR');
   const keys=Array.from({length:7},(_,i)=>dateKey(daysAgo(6-i))),steps=keys.map(k=>num(h[k]?.steps));
@@ -1176,29 +1176,30 @@ async function importHealth(){
   try{txt=await navigator.clipboard.readText()}catch(e){}
   const o=parseHealth(txt);
   if(o){const d=applyHealth(o);animateIn($('health'));toast('Apple Santé importé ✓');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')||'Rien de nouveau'}`);setTimeout(checkBadges,1500);return}
-  modal(`<h2>Importer depuis Apple Santé</h2><p class="muted small">Lance d’abord ton raccourci « ATHLETIQ Santé » : il copie tes données. Puis colle-les ici.</p><label for="hkpaste">Données copiées</label><textarea class="input" id="hkpaste" rows="3" placeholder="ATHLETIQ:pas=…;kcal=…"></textarea><button class="btn full" style="margin-top:14px" onclick="pasteHealth()">Importer</button><button class="btn secondary full" style="margin-top:10px" onclick="healthGuide()">Je n’ai pas encore le raccourci</button>`);
+  modal(`<h2>Importer depuis Apple Santé</h2><p class="muted small">Lance d’abord ton raccourci « ATHLETIQ Santé » : il copie tes données. Puis colle-les ici.</p><label for="hkpaste">Données copiées</label><textarea class="input" id="hkpaste" rows="3" placeholder="ATHLETIQ:pas=…;kcal=…"></textarea><button class="btn full" style="margin-top:14px" onclick="pasteHealth()">Importer</button><button class="btn secondary full" style="margin-top:10px" onclick="stepsModal()">Plutôt saisir mes pas</button>`);
 }
 function stepsModal(){const v=stepsToday();modal(`<h2>Mes pas 👟</h2><p class="muted small">Objectif santé : au moins ${fmtInt(stepGoal())} pas par jour.</p><label for="stepdate">Date</label><input class="input" type="date" id="stepdate" value="${today()}"><label for="stepval">Nombre de pas</label><input class="input" id="stepval" type="number" inputmode="numeric" min="0" max="100000" placeholder="Ex. 8500" value="${v||''}"><button class="btn full" style="margin-top:18px" onclick="saveSteps()">Enregistrer</button>`)}
 function saveSteps(){const n=Math.round(num($('stepval').value)),d=$('stepdate').value;if(!d||n<0||n>100000||$('stepval').value==='')return toast('Entre un nombre de pas valide');db.health=db.health||{};db.health[d]={...(db.health[d]||{}),steps:n};save();closeModal();render();animateIn($(currentTab));toast(n>=stepGoal()?'✅ Objectif de pas atteint !':'Pas enregistrés');if(n>=stepGoal())confetti();setTimeout(checkBadges,1500)}
 function pasteHealth(){const o=parseHealth($('hkpaste').value);if(!o)return toast('Je ne reconnais pas ces données');closeModal();const d=applyHealth(o);tab('health');toast('Apple Santé importé ✓');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')}`);setTimeout(checkBadges,1500)}
 function healthGuide(){
-  const url=location.origin+location.pathname;
-  modal(`<h2>Connecter Apple Santé ❤️</h2>
-  <p class="muted small" style="line-height:1.5">Une appli web ne peut pas lire Apple Santé directement : c’est réservé aux applis de l’App Store. En attendant la version App Store, un <b>raccourci iPhone</b> fait le lien. Ton Apple Watch envoie déjà tout dans Apple Santé, donc ses données arrivent aussi.</p>
-  <h3 style="margin:18px 0 8px">Créer le raccourci (5 min, une seule fois)</h3>
+  modal(`<h2>Relier Apple Santé ⌚</h2>
+  <p class="muted small" style="line-height:1.5">Le plus simple : <b>ouvre l’app Santé ou Forme</b>, regarde tes pas du jour et ajoute-les avec <b>👟 Ajouter mes pas</b>. 10 secondes.</p>
+  <p class="muted small" style="line-height:1.5;margin-top:8px">La synchronisation automatique avec Apple Santé arrivera avec la version App Store. En attendant, voici un <b>raccourci express</b> pour copier tes pas en un geste :</p>
+  <h3 style="margin:16px 0 8px">Raccourci express (4 actions, 2 min)</h3>
   <ol class="steps">
-    <li>Ouvre l’app <b>Raccourcis</b> → <b>+</b> → nomme-le <b>ATHLETIQ Santé</b>.</li>
-    <li>Ajoute <b>Rechercher des échantillons de santé</b> : Type <b>Nombre de pas</b>, Date de début <b>aujourd’hui</b>. Puis <b>Calculer les statistiques</b> → <b>Somme</b>.</li>
-    <li>Refais pareil pour <b>Énergie active</b> (somme) et <b>Minutes d’exercice</b> (somme).</li>
-    <li>Ajoute <b>Rechercher des échantillons de santé</b> : <b>Fréquence cardiaque au repos</b>, trier par date (plus récent), limite <b>1</b>. Pareil pour <b>Poids</b>.</li>
-    <li>Facultatif, le sommeil : <b>Analyse du sommeil</b> sur les dernières 24 h, puis <b>Calculer les statistiques</b> → <b>Somme</b> de la <b>durée</b>, en heures.</li>
-    <li>Ajoute <b>Texte</b> et écris exactement, en insérant chaque résultat :<div class="code" style="margin-top:6px">ATHLETIQ:pas=[Somme 1];kcal=[Somme 2];min=[Somme 3];fc=[FC repos];poids=[Poids];sommeil=[Sommeil]</div></li>
-    <li>Ajoute <b>Copier dans le presse-papiers</b>, puis <b>Afficher la notification</b> « Données copiées, ouvre ATHLETIQ ».</li>
+    <li>App <b>Raccourcis</b> → <b>+</b>. Cherche et ajoute <b>Rechercher des échantillons de santé</b> → choisis <b>Nombre de pas</b>, date de début <b>aujourd’hui</b>.</li>
+    <li>Ajoute <b>Calculer les statistiques</b> → <b>Somme</b>.</li>
+    <li>Ajoute <b>Texte</b> et écris <span class="code" style="display:inline-block">ATHLETIQ:pas=</span> puis insère la variable <b>Statistiques</b>.</li>
+    <li>Ajoute <b>Copier dans le presse-papiers</b>. Nomme le raccourci <b>Mes pas</b>.</li>
   </ol>
-  <h3 style="margin:18px 0 8px">Chaque jour</h3>
-  <ol class="steps"><li>Lance le raccourci (depuis un widget ou en disant « Dis Siri, ATHLETIQ Santé »).</li><li>Ouvre ATHLETIQ → <b>Santé</b> → <b>↓ Importer</b>, puis <b>Coller</b>.</li></ol>
-  <p class="muted small" style="margin-top:14px;line-height:1.5">Astuce : si tu utilises ATHLETIQ dans Safari (pas depuis l’écran d’accueil), le raccourci peut aussi ouvrir directement ce lien suivi de <b>#sante=</b> et ton texte :</p><div class="code">${escapeHtml(url)}#sante=ATHLETIQ:pas=…</div>
-  <p class="muted small" style="margin-top:14px">Les noms des actions peuvent varier un peu selon ta version d’iOS. Dans la future appli App Store, tout sera synchronisé automatiquement.</p>`);
+  <p class="muted small" style="margin-top:12px;line-height:1.5">Ensuite : « <b>Dis Siri, mes pas</b> », ouvre ATHLETIQ → <b>↓ Importer</b> → <b>Coller</b>.</p>
+  <details style="margin-top:16px"><summary class="muted small" style="cursor:pointer">Version complète (calories, exercice, FC, poids, sommeil)</summary>
+  <ol class="steps" style="margin-top:10px">
+    <li>Même principe, une recherche par donnée : <b>Énergie active</b> et <b>Minutes d’exercice</b> (somme du jour), <b>Fréquence cardiaque au repos</b> et <b>Poids</b> (le plus récent, limite 1), <b>Analyse du sommeil</b> (somme des durées, en heures).</li>
+    <li>Texte : <div class="code" style="margin-top:6px">ATHLETIQ:pas=…;kcal=…;min=…;fc=…;poids=…;sommeil=…</div></li>
+    <li>Copier dans le presse-papiers, puis Importer dans ATHLETIQ.</li>
+  </ol></details>
+  <p class="muted small" style="margin-top:14px">Les noms des actions peuvent varier un peu selon ta version d’iOS.</p>`);
 }
 // Import par lien (#sante=...)
 function hashHealth(delay=1800){const h=location.hash;if(!/^#sante=/i.test(h))return;const o=parseHealth(h.slice(7));history.replaceState(null,'',location.pathname+location.search);if(!o)return;const d=applyHealth(o);setTimeout(()=>{tab('health');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')}`)},delay)}
@@ -1655,7 +1656,7 @@ const TOUR=[
   ['Nutrition','#calring','nutrition',"Ton <b>anneau de calories</b> : ce qu'il te reste à manger aujourd'hui selon ton objectif (à régler dans ton profil)."],
   ['Nutrition','#macros','nutrition',"Tes <b>macros</b> : protéines, glucides et lipides restants pour la journée."],
   ['Nutrition','#addmealbtn','nutrition',"Pour ajouter un repas : tes <b>favoris ⭐</b> et <b>récents</b> en un appui, ou une <b>recherche d'aliments</b> qui calcule les calories selon la quantité."],
-  ['Santé','#hkcard','health',"Relie <b>Apple Santé</b> et ton <b>Apple Watch</b> : tes pas, calories actives, minutes d'exercice, FC au repos, sommeil et poids arrivent ici. Pas de montre ? Saisis tes pas à la main. Objectif santé : <b>8 000 pas par jour</b>."],
+  ['Santé','#hkcard','health',"Relie <b>Apple Santé</b> et ton <b>Apple Watch</b> : tes pas, calories actives, minutes d'exercice, FC au repos, sommeil et poids arrivent ici. Le plus simple : <b>👟 Ajouter mes pas</b> en 10 secondes. Objectif santé : <b>8 000 pas par jour</b>."],
   ['Santé','#sleepchart','health',"Note tes nuits avec ton <b>heure de coucher et de réveil</b> : je calcule la durée, et je te montre tes 7 dernières nuits, tes horaires moyens et la ligne des 8 h."],
   ['Santé','#recovcard','health',"Et ta <b>récupération ressentie</b> sur 10, pour savoir quand pousser et quand lever le pied."],
   ['Progrès','#goalcard','progress',"Ton <b>objectif de la semaine</b> en pourcentage."],
