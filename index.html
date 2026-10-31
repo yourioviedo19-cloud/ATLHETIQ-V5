@@ -269,6 +269,17 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
 .steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;font-size:14.5px;line-height:1.45}
 .steps li::marker{color:var(--lime);font-weight:800}
 #focus~#modalhost .overlay,#modalhost .overlay{z-index:150}
+/* Apple Santé */
+.hk{background:linear-gradient(160deg,#2a1218,#141114 70%);border-color:#4a2530}
+.hkhead{display:flex;align-items:center;gap:12px}
+.hkicon{width:40px;height:40px;border-radius:11px;background:#fff;display:grid;place-items:center;flex:none}
+.hkicon svg{width:24px;height:24px}
+.hkgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.hkgrid div{background:#ffffff0d;border-radius:16px;padding:12px}
+.hkgrid small{font-size:11px;color:var(--muted)}.hkgrid strong{display:block;font-size:22px;margin-top:4px;font-variant-numeric:tabular-nums}
+.hkgrid span{font-size:12px;color:var(--muted)}
+.cbars.pink .cbar i{background:linear-gradient(180deg,#ff9cbd,#a3204f)}.cbars.pink .cbar.on i{background:linear-gradient(180deg,#ff6b9b,#ff2d6f);box-shadow:0 0 18px #ff3d7f66}
+.code{font:12px ui-monospace,Menlo,monospace;background:#0e100d;border:1px solid #2c3029;border-radius:10px;padding:8px 10px;word-break:break-all;color:#dff5a0;user-select:all}
 /* Records, bibliothèque, motivation */
 .lastline{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px}
 .lastline span{font-size:12px;padding:6px 11px;border-radius:10px;background:#1f231d;color:#cfd3ca}
@@ -374,6 +385,11 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
 <section id="health" class="screen">
   <p class="muted small">BIEN-ÊTRE</p>
   <h1>Santé <span style="color:var(--purple)">& sommeil.</span></h1>
+  <div class="card hk" id="hkcard">
+    <div class="hkhead"><div class="hkicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff2d55" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.3 2.4h2c.7-1.2 2.2-2.4 4.3-2.4 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21Z"/></svg></div><div style="flex:1;min-width:0"><h2>Apple Santé & Apple Watch</h2><p class="muted small" id="hksync">Pas encore connecté</p></div></div>
+    <div id="hkbody"></div>
+    <div class="row" style="margin-top:14px"><button class="btn" style="flex:1" onclick="importHealth()">↓ Importer</button><button class="btn secondary" onclick="healthGuide()">Connecter</button></div>
+  </div>
   <div class="card sleep" id="sleepchart">
     <div class="row"><h2>☾ Sommeil · 7 nuits</h2><span class="muted small" id="sleepavg"></span></div>
     <div id="sleepbars"></div>
@@ -503,7 +519,7 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
 'use strict';
 /* ---------- Données (même clé que la V5 : rien n'est perdu) ---------- */
 const KEY='athletiq_v5_user_local';
-const blank=()=>({profile:{},sports:[],meals:[],weights:[],sleep:[],sessions:[],lifts:{},coach:{},drafts:{},plans:[
+const blank=()=>({profile:{},sports:[],meals:[],weights:[],sleep:[],sessions:[],lifts:{},health:{},coach:{},drafts:{},plans:[
   {id:'p1',name:'Haut du corps',type:'Haut',exercises:[{name:'Développé couché',sets:3,kg:0,reps:'8-12'},{name:'Tirage vertical',sets:3,kg:0,reps:'8-12'},{name:'Élévations latérales',sets:3,kg:0,reps:'12-15'}]},
   {id:'p2',name:'Jambes',type:'Jambes',exercises:[{name:'Presse à cuisses',sets:3,kg:0,reps:'10-12'},{name:'Leg curl',sets:3,kg:0,reps:'10-12'}]},
   {id:'p3',name:'Cardio',type:'Cardio',exercises:[{name:'Course ou vélo (minutes)',sets:1,kg:0,reps:'30'}]}]});
@@ -1091,16 +1107,80 @@ function addMeal(){const name=$('mealname').value.trim();if(!name)return toast('
 function removeMeal(id){if(!confirm('Supprimer ce repas ?'))return;db.meals=db.meals.filter(m=>m.id!==id);save();render()}
 
 /* ---------- Santé ---------- */
-function renderHealth(){
+function renderHK(){
+  const h=db.health||{},tk=today(),d=h[tk];
+  const last=Object.keys(h).sort().at(-1);
+  $('hksync').textContent=db.coach.hkAt?'Dernière synchro : '+new Date(db.coach.hkAt).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}):'Pas encore connecté · appuie sur « Connecter »';
+  if(!last){$('hkbody').innerHTML='<p class="muted small" style="margin-top:12px;line-height:1.5">Récupère tes pas, tes calories actives, tes minutes d’exercice, ta fréquence cardiaque au repos, ton sommeil et ton poids, y compris ceux de ton Apple Watch.</p>';return}
+  const v=d||h[last],f=x=>x==null?'—':Math.round(x).toLocaleString('fr-FR');
+  const keys=Array.from({length:7},(_,i)=>dateKey(daysAgo(6-i))),steps=keys.map(k=>num(h[k]?.steps));
+  $('hkbody').innerHTML=`<p class="muted small" style="margin-top:12px">${d?'AUJOURD’HUI':'DERNIÈRES DONNÉES · '+fmtDate(last).toUpperCase()}</p>
+  <div class="hkgrid"><div><small>👟 PAS</small><strong>${f(v.steps)}</strong><span>objectif 10 000</span></div><div><small>🔥 CALORIES ACTIVES</small><strong>${f(v.kcal)}</strong><span>kcal</span></div><div><small>⏱ EXERCICE</small><strong>${f(v.exmin)}</strong><span>minutes</span></div><div><small>❤️ FC AU REPOS</small><strong>${f(v.hr)}</strong><span>bpm</span></div></div>
+  ${steps.some(Boolean)?`<p class="muted small" style="margin-top:14px">PAS · 7 JOURS</p>${barChart(steps,keys.map(x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'narrow'})),{active:6,cls:'pink',target:10000,fmt:x=>x>=1000?(x/1000).toFixed(1).replace('.',',')+'k':x})}`:''}`;
+}
+function renderHealth(){renderHK();
   const keys=Array.from({length:7},(_,i)=>dateKey(daysAgo(6-i))),vals=keys.map(k=>sleepOn(k)?.hours||0),filled=vals.filter(Boolean);
   $('sleepbars').innerHTML=barChart(vals,keys.map(x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'narrow'})),{active:6,cls:'purple',target:8,fmt:v=>String(v).replace('.',',')+'h'});
   $('sleepavg').textContent=filled.length?'moy. '+(filled.reduce((a,b)=>a+b,0)/filled.length).toFixed(1).replace('.',',')+' h':'';
   const s=lastSleep();
-  $('recovsvg').innerHTML=ringSVG([{color:'#a04dff',pct:s?s.recovery/10:0}],96,10)+`<b>${s?s.recovery:'—'}</b>`;
-  $('recoveryvalue').textContent=s?s.recovery+'/10':'—';
+  const rc=s&&num(s.recovery)?s.recovery:null;
+  $('recovsvg').innerHTML=ringSVG([{color:'#a04dff',pct:rc?rc/10:0}],96,10)+`<b>${rc??'—'}</b>`;
+  $('recoveryvalue').textContent=rc?rc+'/10':'—';
   $('sleeptotal').textContent='Dernière nuit : '+(s?String(s.hours).replace('.',',')+' h':'—');
   if(!$('sleepdate').value)$('sleepdate').value=today();
 }
+/* Import Apple Santé : format « ATHLETIQ:pas=8432;kcal=512;min=34;fc=58;sommeil=7,4;poids=74,2;date=2026-10-31 » */
+function parseHealth(txt){
+  txt=String(txt||'');if(!/pas|kcal|sommeil|poids|fc|min/i.test(txt))return null;
+  try{txt=decodeURIComponent(txt)}catch(e){}
+  const get=k=>{const m=txt.match(new RegExp('(?:^|[;&?#:\\s])'+k+'\\s*=\\s*([0-9][0-9\\s  .,]*)','i'));if(!m)return null;
+    let v=m[1].replace(/[\s  ]/g,'');if(/,\d{1,2}$/.test(v)&&!/\.\d/.test(v))v=v.replace(/\./g,'').replace(',','.');else v=v.replace(/,/g,'');const n=parseFloat(v);return Number.isFinite(n)?n:null};
+  const dm=txt.match(/date\s*=\s*(\d{4}-\d{2}-\d{2})/i),dm2=txt.match(/date\s*=\s*(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/i);
+  const date=dm?dm[1]:dm2?`${dm2[3]}-${dm2[2].padStart(2,'0')}-${dm2[1].padStart(2,'0')}`:today();
+  let sl=get('sommeil');if(sl!=null&&sl>24)sl=sl/3600>2?+(sl/3600).toFixed(2):+(sl/60).toFixed(2);// secondes ou minutes -> heures
+  const o={date,steps:get('pas'),kcal:get('kcal'),exmin:get('min'),hr:get('fc'),sleep:sl,weight:get('poids')};
+  return Object.values(o).filter(x=>x!=null).length>1?o:null;
+}
+function applyHealth(o){
+  db.health=db.health||{};const cur=db.health[o.date]||{};
+  ['steps','kcal','exmin','hr'].forEach(k=>{if(o[k]!=null&&o[k]>=0)cur[k]=o[k]});db.health[o.date]=cur;
+  const done=[];
+  if(o.steps!=null)done.push(Math.round(o.steps).toLocaleString('fr-FR')+' pas');
+  if(o.kcal!=null)done.push(Math.round(o.kcal)+' kcal actives');
+  if(o.sleep!=null&&o.sleep>0&&o.sleep<=16){const ex=db.sleep.find(x=>x.date===o.date);db.sleep=db.sleep.filter(x=>x.date!==o.date);db.sleep.push({date:o.date,hours:+o.sleep.toFixed(2),recovery:ex?.recovery??null});done.push(String(+o.sleep.toFixed(1)).replace('.',',')+' h de sommeil')}
+  if(o.weight!=null&&o.weight>=20&&o.weight<=400){db.weights=db.weights.filter(w=>w.date!==o.date);db.weights.push({date:o.date,kg:+o.weight.toFixed(1)});db.weights.sort((a,b)=>a.date.localeCompare(b.date));done.push(String(+o.weight.toFixed(1)).replace('.',',')+' kg')}
+  db.coach.hkAt=Date.now();save();render();
+  return done;
+}
+async function importHealth(){
+  let txt='';
+  try{txt=await navigator.clipboard.readText()}catch(e){}
+  const o=parseHealth(txt);
+  if(o){const d=applyHealth(o);animateIn($('health'));toast('Apple Santé importé ✓');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')||'Rien de nouveau'}`);setTimeout(checkBadges,1500);return}
+  modal(`<h2>Importer depuis Apple Santé</h2><p class="muted small">Lance d’abord ton raccourci « ATHLETIQ Santé » : il copie tes données. Puis colle-les ici.</p><label for="hkpaste">Données copiées</label><textarea class="input" id="hkpaste" rows="3" placeholder="ATHLETIQ:pas=…;kcal=…"></textarea><button class="btn full" style="margin-top:14px" onclick="pasteHealth()">Importer</button><button class="btn secondary full" style="margin-top:10px" onclick="healthGuide()">Je n’ai pas encore le raccourci</button>`);
+}
+function pasteHealth(){const o=parseHealth($('hkpaste').value);if(!o)return toast('Je ne reconnais pas ces données');closeModal();const d=applyHealth(o);tab('health');toast('Apple Santé importé ✓');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')}`);setTimeout(checkBadges,1500)}
+function healthGuide(){
+  const url=location.origin+location.pathname;
+  modal(`<h2>Connecter Apple Santé ❤️</h2>
+  <p class="muted small" style="line-height:1.5">Une appli web ne peut pas lire Apple Santé directement : c’est réservé aux applis de l’App Store. En attendant la version App Store, un <b>raccourci iPhone</b> fait le lien. Ton Apple Watch envoie déjà tout dans Apple Santé, donc ses données arrivent aussi.</p>
+  <h3 style="margin:18px 0 8px">Créer le raccourci (5 min, une seule fois)</h3>
+  <ol class="steps">
+    <li>Ouvre l’app <b>Raccourcis</b> → <b>+</b> → nomme-le <b>ATHLETIQ Santé</b>.</li>
+    <li>Ajoute <b>Rechercher des échantillons de santé</b> : Type <b>Nombre de pas</b>, Date de début <b>aujourd’hui</b>. Puis <b>Calculer les statistiques</b> → <b>Somme</b>.</li>
+    <li>Refais pareil pour <b>Énergie active</b> (somme) et <b>Minutes d’exercice</b> (somme).</li>
+    <li>Ajoute <b>Rechercher des échantillons de santé</b> : <b>Fréquence cardiaque au repos</b>, trier par date (plus récent), limite <b>1</b>. Pareil pour <b>Poids</b>.</li>
+    <li>Facultatif, le sommeil : <b>Analyse du sommeil</b> sur les dernières 24 h, puis <b>Calculer les statistiques</b> → <b>Somme</b> de la <b>durée</b>, en heures.</li>
+    <li>Ajoute <b>Texte</b> et écris exactement, en insérant chaque résultat :<div class="code" style="margin-top:6px">ATHLETIQ:pas=[Somme 1];kcal=[Somme 2];min=[Somme 3];fc=[FC repos];poids=[Poids];sommeil=[Sommeil]</div></li>
+    <li>Ajoute <b>Copier dans le presse-papiers</b>, puis <b>Afficher la notification</b> « Données copiées, ouvre ATHLETIQ ».</li>
+  </ol>
+  <h3 style="margin:18px 0 8px">Chaque jour</h3>
+  <ol class="steps"><li>Lance le raccourci (depuis un widget ou en disant « Dis Siri, ATHLETIQ Santé »).</li><li>Ouvre ATHLETIQ → <b>Santé</b> → <b>↓ Importer</b>, puis <b>Coller</b>.</li></ol>
+  <p class="muted small" style="margin-top:14px;line-height:1.5">Astuce : si tu utilises ATHLETIQ dans Safari (pas depuis l’écran d’accueil), le raccourci peut aussi ouvrir directement ce lien suivi de <b>#sante=</b> et ton texte :</p><div class="code">${escapeHtml(url)}#sante=ATHLETIQ:pas=…</div>
+  <p class="muted small" style="margin-top:14px">Les noms des actions peuvent varier un peu selon ta version d’iOS. Dans la future appli App Store, tout sera synchronisé automatiquement.</p>`);
+}
+// Import par lien (#sante=...)
+function hashHealth(delay=1800){const h=location.hash;if(!/^#sante=/i.test(h))return;const o=parseHealth(h.slice(7));history.replaceState(null,'',location.pathname+location.search);if(!o)return;const d=applyHealth(o);setTimeout(()=>{tab('health');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')}`)},delay)}
 function saveSleep(){const hours=Number($('sleephours').value),date=$('sleepdate').value;if(!date||!$('sleephours').value||!Number.isFinite(hours)||hours<0||hours>24)return toast('Entre une durée valide (0 à 24 h)');db.sleep=db.sleep.filter(x=>x.date!==date);db.sleep.push({date,hours,recovery:num($('recoveryinput').value)});save();render();animateIn($('health'));toast('Nuit enregistrée ☾');setTimeout(checkBadges,1500)}
 
 /* ---------- Progrès ---------- */
@@ -1474,6 +1554,7 @@ function bilan(){
   lines.push(sl.length?`• Sommeil moyen : ${avg.toFixed(1).replace('.',',')} h sur ${sl.length} nuit${sl.length>1?'s':''} ${avg>=7?'✅':'— essaie de viser 7 h ou plus'}`:'• Sommeil : aucune nuit saisie cette semaine');
   if(recent.length>1){const d=+(recent.at(-1).kg-recent[0].kg).toFixed(1);lines.push(`• Poids sur 30 jours : ${d>0?'+':''}${String(d).replace('.',',')} kg`)}
   const cal=calOn(today()),cg=num(db.profile.calgoal);lines.push(cg?`• Aujourd'hui : ${cal} / ${cg} kcal`:"• Fixe un objectif de calories dans ton profil pour que je le suive");
+  const hk=Object.entries(db.health||{}).filter(([k])=>k>=dateKey(daysAgo(6)));if(hk.length){const avg=Math.round(hk.reduce((a,[,v])=>a+num(v.steps),0)/hk.length);lines.push(`• Pas : ${avg.toLocaleString('fr-FR')} par jour en moyenne ${avg>=8000?'👟':''}`)}
   const st=streak();if(st)lines.push(`• Série : ${st} semaine${st>1?'s':''} d’affilée 🔥`);
   lines.push(ws.length>=goal?'Continue comme ça !':ws.length?'Bon rythme, on garde le cap 💪':"Pas encore de séance cette semaine : on s'y met ? 🔥");
   return lines.join('<br>');
@@ -1539,6 +1620,7 @@ const TOUR=[
   ['Nutrition','#calring','nutrition',"Ton <b>anneau de calories</b> : ce qu'il te reste à manger aujourd'hui selon ton objectif (à régler dans ton profil)."],
   ['Nutrition','#macros','nutrition',"Tes <b>macros</b> : protéines, glucides et lipides restants pour la journée."],
   ['Nutrition','#addmealbtn','nutrition',"Pour ajouter un repas : tes <b>favoris ⭐</b> et <b>récents</b> en un appui, ou une <b>recherche d'aliments</b> qui calcule les calories selon la quantité."],
+  ['Santé','#hkcard','health',"Relie <b>Apple Santé</b> et ton <b>Apple Watch</b> : tes pas, calories actives, minutes d'exercice, FC au repos, sommeil et poids arrivent ici. Appuie sur « Connecter » pour le guide."],
   ['Santé','#sleepchart','health',"Note tes nuits ici : je te montre tes 7 dernières nuits, ta moyenne et la ligne des 8 h."],
   ['Santé','#recovcard','health',"Et ta <b>récupération ressentie</b> sur 10, pour savoir quand pousser et quand lever le pied."],
   ['Progrès','#goalcard','progress',"Ton <b>objectif de la semaine</b> en pourcentage."],
@@ -1585,7 +1667,7 @@ function confetti(){
 
 /* ---------- Démarrage ---------- */
 function render(){renderHome();renderTraining();renderNutrition();renderHealth();renderProgress();renderProfile()}
-render();
+render();hashHealth();window.addEventListener('hashchange',()=>hashHealth(300));
 // Animation d'ouverture : le logo se dessine, zoom, et on entre dans l'appli
 (function(){const sp=$('splash');if(!sp)return;const end=()=>{sp.remove();animateIn($('home'))};
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return end();
