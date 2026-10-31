@@ -56,7 +56,7 @@ h1,h2,h3,p{margin:0}h1{font-size:32px;letter-spacing:-1.2px}h2{font-size:19px;le
 .ringcard{display:flex;align-items:center;gap:16px;cursor:pointer}
 .ringwrap{width:150px;height:150px;flex:none}.ringwrap svg{width:100%;height:100%;display:block}
 .arc{transition:stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1)}
-.ringlegend{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.ringlegend{flex:1;display:flex;flex-direction:column;gap:9px;min-width:0}
 .leg small{display:block;font-size:11px;color:var(--muted);letter-spacing:.5px}
 .leg strong{font-size:19px;font-variant-numeric:tabular-nums}.leg strong span{font-size:12px;color:var(--muted);font-weight:500}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
@@ -389,6 +389,7 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
     <div class="hkhead"><div class="hkicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff2d55" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.3 2.4h2c.7-1.2 2.2-2.4 4.3-2.4 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21Z"/></svg></div><div style="flex:1;min-width:0"><h2>Apple Santé & Apple Watch</h2><p class="muted small" id="hksync">Pas encore connecté</p></div></div>
     <div id="hkbody"></div>
     <div class="row" style="margin-top:14px"><button class="btn" style="flex:1" onclick="importHealth()">↓ Importer</button><button class="btn secondary" onclick="healthGuide()">Connecter</button></div>
+    <button class="link" style="margin-top:10px;width:100%" onclick="stepsModal()">✎ Saisir mes pas à la main</button>
   </div>
   <div class="card sleep" id="sleepchart">
     <div class="row"><h2>☾ Sommeil · 7 nuits</h2><span class="muted small" id="sleepavg"></span></div>
@@ -473,6 +474,7 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
       <div><label for="where">Lieu</label><select id="where" class="input"><option value="">—</option><option>Salle</option><option>Maison</option><option>Les deux</option><option>Dehors</option></select></div>
       <div><label for="age">Âge</label><input id="age" class="input" type="number" min="10" max="100" placeholder="—"></div>
       <div><label for="weight">Poids de départ (kg)</label><input id="weight" class="input" type="number" min="30" max="250" step="0.1" placeholder="—"></div>
+      <div><label for="stepgoal">Objectif de pas / jour</label><input id="stepgoal" class="input" type="number" min="1000" max="40000" step="500" placeholder="8000"></div>
       <div><label for="height">Taille (cm)</label><input id="height" class="input" type="number" min="80" max="250" placeholder="—"></div>
       <div><label for="target">Objectif poids (kg)</label><input id="target" class="input" type="number" min="20" max="400" step="0.1" placeholder="—"></div>
       <div><label for="calgoal">Calories / jour</label><input id="calgoal" class="input" type="number" min="500" max="8000" placeholder="—"></div>
@@ -540,6 +542,7 @@ function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;',
 function toast(msg){const e=$('toast');e.textContent=msg;e.style.display='block';clearTimeout(window._toast);window._toast=setTimeout(()=>e.style.display='none',2900)}
 function fmtDate(s){return new Date(s+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}
 const firstName=()=>escapeHtml(db.profile.name||'');
+const stepGoal=()=>num(db.profile.stepgoal)||8000,stepsToday=()=>num(db.health?.[today()]?.steps),fmtInt=n=>Math.round(n).toLocaleString('fr-FR');
 
 /* ---------- Statistiques ---------- */
 const weekSessions=()=>db.sessions.filter(s=>s.date>=dateKey(daysAgo(6)));
@@ -619,8 +622,9 @@ function renderHome(){
   const rings=[
     {color:'#caff12',pct:week/goal,label:'Séances · semaine',val:`${week}<span> / ${goal}</span>`},
     {color:'#ff3d7f',pct:calGoal?cal/calGoal:0,label:'Calories · jour',val:calGoal?`${cal}<span> / ${calGoal}</span>`:`${cal}<span> kcal</span>`},
-    {color:'#a04dff',pct:sl?sl.hours/8:0,label:'Sommeil · nuit',val:sl?`${sl.hours}<span> / 8 h</span>`:'—'}];
-  $('ringsvg').innerHTML=ringSVG(rings,200,19,4);
+    {color:'#a04dff',pct:sl?sl.hours/8:0,label:'Sommeil · nuit',val:sl?`${String(sl.hours).replace('.',',')}<span> / 8 h</span>`:'—'},
+    {color:'#4fa8ff',pct:stepsToday()/stepGoal(),label:'Pas · jour',val:stepsToday()?`${fmtInt(stepsToday())}<span> / ${fmtInt(stepGoal())}</span>`:`—<span> / ${fmtInt(stepGoal())}</span>`}];
+  $('ringsvg').innerHTML=ringSVG(rings,200,15,4);
   $('ringlegend').innerHTML=rings.map(r=>`<div class="leg"><small><span class="dot" style="background:${r.color}"></span>${r.label}</small><strong>${r.val}</strong></div>`).join('');
   const st=streak(),nb=earned().size;
   $('motiv').innerHTML=`<button onclick="tab('progress');setTimeout(()=>$('streakcard').scrollIntoView({block:'center',behavior:'smooth'}),300)"><span class="big" style="${st?'':'filter:grayscale(1)'}">🔥</span><div><strong>${st}</strong><small>semaine${st>1?'s':''} d’affilée</small></div></button><button onclick="tab('progress');setTimeout(()=>$('badgecard').scrollIntoView({block:'center',behavior:'smooth'}),300)"><span class="big">🏅</span><div><strong>${nb}<span class="muted" style="font-size:13px"> / ${BADGES.length}</span></strong><small>badges</small></div></button>`;
@@ -1110,13 +1114,13 @@ function removeMeal(id){if(!confirm('Supprimer ce repas ?'))return;db.meals=db.m
 function renderHK(){
   const h=db.health||{},tk=today(),d=h[tk];
   const last=Object.keys(h).sort().at(-1);
-  $('hksync').textContent=db.coach.hkAt?'Dernière synchro : '+new Date(db.coach.hkAt).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}):'Pas encore connecté · appuie sur « Connecter »';
+  $('hksync').textContent=db.coach.hkAt?'Dernière synchro : '+new Date(db.coach.hkAt).toLocaleString('fr-FR',{weekday:'short',hour:'2-digit',minute:'2-digit'}):(last?'Saisie manuelle · « Connecter » pour relier ta montre':'Pas encore connecté · appuie sur « Connecter »');
   if(!last){$('hkbody').innerHTML='<p class="muted small" style="margin-top:12px;line-height:1.5">Récupère tes pas, tes calories actives, tes minutes d’exercice, ta fréquence cardiaque au repos, ton sommeil et ton poids, y compris ceux de ton Apple Watch.</p>';return}
   const v=d||h[last],f=x=>x==null?'—':Math.round(x).toLocaleString('fr-FR');
   const keys=Array.from({length:7},(_,i)=>dateKey(daysAgo(6-i))),steps=keys.map(k=>num(h[k]?.steps));
   $('hkbody').innerHTML=`<p class="muted small" style="margin-top:12px">${d?'AUJOURD’HUI':'DERNIÈRES DONNÉES · '+fmtDate(last).toUpperCase()}</p>
-  <div class="hkgrid"><div><small>👟 PAS</small><strong>${f(v.steps)}</strong><span>objectif 10 000</span></div><div><small>🔥 CALORIES ACTIVES</small><strong>${f(v.kcal)}</strong><span>kcal</span></div><div><small>⏱ EXERCICE</small><strong>${f(v.exmin)}</strong><span>minutes</span></div><div><small>❤️ FC AU REPOS</small><strong>${f(v.hr)}</strong><span>bpm</span></div></div>
-  ${steps.some(Boolean)?`<p class="muted small" style="margin-top:14px">PAS · 7 JOURS</p>${barChart(steps,keys.map(x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'narrow'})),{active:6,cls:'pink',target:10000,fmt:x=>x>=1000?(x/1000).toFixed(1).replace('.',',')+'k':x})}`:''}`;
+  <div class="hkgrid"><div><small>👟 PAS</small><strong>${f(v.steps)}</strong><span>${num(v.steps)>=stepGoal()?'✅ objectif atteint':'objectif '+fmtInt(stepGoal())}</span></div><div><small>🔥 CALORIES ACTIVES</small><strong>${f(v.kcal)}</strong><span>kcal</span></div><div><small>⏱ EXERCICE</small><strong>${f(v.exmin)}</strong><span>minutes</span></div><div><small>❤️ FC AU REPOS</small><strong>${f(v.hr)}</strong><span>bpm</span></div></div>
+  ${steps.some(Boolean)?`<p class="muted small" style="margin-top:14px">PAS · 7 JOURS</p>${barChart(steps,keys.map(x=>new Date(x+'T12:00').toLocaleDateString('fr-FR',{weekday:'narrow'})),{active:6,cls:'pink',target:stepGoal(),fmt:x=>x>=1000?(x/1000).toFixed(1).replace('.',',')+'k':x})}`:''}`;
 }
 function renderHealth(){renderHK();
   const keys=Array.from({length:7},(_,i)=>dateKey(daysAgo(6-i))),vals=keys.map(k=>sleepOn(k)?.hours||0),filled=vals.filter(Boolean);
@@ -1145,7 +1149,7 @@ function applyHealth(o){
   db.health=db.health||{};const cur=db.health[o.date]||{};
   ['steps','kcal','exmin','hr'].forEach(k=>{if(o[k]!=null&&o[k]>=0)cur[k]=o[k]});db.health[o.date]=cur;
   const done=[];
-  if(o.steps!=null)done.push(Math.round(o.steps).toLocaleString('fr-FR')+' pas');
+  if(o.steps!=null)done.push(Math.round(o.steps).toLocaleString('fr-FR')+' pas'+(o.steps>=stepGoal()?' ✅':''));
   if(o.kcal!=null)done.push(Math.round(o.kcal)+' kcal actives');
   if(o.sleep!=null&&o.sleep>0&&o.sleep<=16){const ex=db.sleep.find(x=>x.date===o.date);db.sleep=db.sleep.filter(x=>x.date!==o.date);db.sleep.push({date:o.date,hours:+o.sleep.toFixed(2),recovery:ex?.recovery??null});done.push(String(+o.sleep.toFixed(1)).replace('.',',')+' h de sommeil')}
   if(o.weight!=null&&o.weight>=20&&o.weight<=400){db.weights=db.weights.filter(w=>w.date!==o.date);db.weights.push({date:o.date,kg:+o.weight.toFixed(1)});db.weights.sort((a,b)=>a.date.localeCompare(b.date));done.push(String(+o.weight.toFixed(1)).replace('.',',')+' kg')}
@@ -1159,6 +1163,8 @@ async function importHealth(){
   if(o){const d=applyHealth(o);animateIn($('health'));toast('Apple Santé importé ✓');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')||'Rien de nouveau'}`);setTimeout(checkBadges,1500);return}
   modal(`<h2>Importer depuis Apple Santé</h2><p class="muted small">Lance d’abord ton raccourci « ATHLETIQ Santé » : il copie tes données. Puis colle-les ici.</p><label for="hkpaste">Données copiées</label><textarea class="input" id="hkpaste" rows="3" placeholder="ATHLETIQ:pas=…;kcal=…"></textarea><button class="btn full" style="margin-top:14px" onclick="pasteHealth()">Importer</button><button class="btn secondary full" style="margin-top:10px" onclick="healthGuide()">Je n’ai pas encore le raccourci</button>`);
 }
+function stepsModal(){const v=stepsToday();modal(`<h2>Mes pas 👟</h2><p class="muted small">Objectif santé : au moins ${fmtInt(stepGoal())} pas par jour.</p><label for="stepdate">Date</label><input class="input" type="date" id="stepdate" value="${today()}"><label for="stepval">Nombre de pas</label><input class="input" id="stepval" type="number" inputmode="numeric" min="0" max="100000" placeholder="Ex. 8500" value="${v||''}"><button class="btn full" style="margin-top:18px" onclick="saveSteps()">Enregistrer</button>`)}
+function saveSteps(){const n=Math.round(num($('stepval').value)),d=$('stepdate').value;if(!d||n<0||n>100000||$('stepval').value==='')return toast('Entre un nombre de pas valide');db.health=db.health||{};db.health[d]={...(db.health[d]||{}),steps:n};save();closeModal();render();animateIn($(currentTab));toast(n>=stepGoal()?'✅ Objectif de pas atteint !':'Pas enregistrés');if(n>=stepGoal())confetti();setTimeout(checkBadges,1500)}
 function pasteHealth(){const o=parseHealth($('hkpaste').value);if(!o)return toast('Je ne reconnais pas ces données');closeModal();const d=applyHealth(o);tab('health');toast('Apple Santé importé ✓');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')}`);setTimeout(checkBadges,1500)}
 function healthGuide(){
   const url=location.origin+location.pathname;
@@ -1240,7 +1246,10 @@ const BADGES=[
   {id:'rings',ico:'⭕',n:'Triple anneau',d:'3 anneaux fermés',t:()=>{const cg=num(db.profile.calgoal),sl=sleepOn(today())||sleepOn(dateKey(daysAgo(1)));return weekSessions().length>=weeklyGoal()&&cg&&calOn(today())>=cg&&sl&&sl.hours>=8}},
   {id:'sleep7',ico:'🌙',n:'Bon dormeur',d:'7 nuits notées',t:()=>db.sleep.length>=7},
   {id:'meal',ico:'🥗',n:'Bien nourri',d:'10 repas notés',t:()=>db.meals.length>=10},
-  {id:'weigh',ico:'⚖️',n:'Suivi',d:'5 pesées',t:()=>db.weights.length>=5}];
+  {id:'weigh',ico:'⚖️',n:'Suivi',d:'5 pesées',t:()=>db.weights.length>=5},
+  {id:'walk7',ico:'👟',n:'Marcheur',d:'Objectif de pas 7 jours',t:()=>Object.values(db.health||{}).filter(v=>num(v.steps)>=stepGoal()).length>=7},
+  {id:'walk20',ico:'🥾',n:'20 000 pas',d:'En une journée',t:()=>Object.values(db.health||{}).some(v=>num(v.steps)>=20000)},
+  {id:'hk',ico:'⌚',n:'Connecté',d:'1er import Apple Santé',t:()=>!!db.coach.hkAt}];
 function earned(){const got=new Set(db.coach.badges||[]);BADGES.forEach(b=>{try{if(b.t())got.add(b.id)}catch(e){}});return got}
 function renderBadges(){
   const got=earned();
@@ -1336,7 +1345,7 @@ function weightModal(){modal(`<h2>Ajouter une pesée</h2><label>Date</label><inp
 function saveWeight(){const kg=Number($('weightvalue').value),date=$('weightdate').value;if(!date||!kg||kg<20||kg>400)return toast('Poids invalide');db.weights=db.weights.filter(w=>w.date!==date);db.weights.push({date,kg});db.weights.sort((a,b)=>a.date.localeCompare(b.date));save();closeModal();render();animateIn($('progress'));toast('Pesée enregistrée');setTimeout(checkBadges,1500)}
 
 /* ---------- Profil ---------- */
-const fields=['name','goal','level','where','age','weight','height','target','calgoal','proteingoal','carbgoal','fatgoal','weeklygoal'],textFields=['name','goal','level','where'];
+const fields=['name','goal','level','where','age','weight','stepgoal','height','target','calgoal','proteingoal','carbgoal','fatgoal','weeklygoal'],textFields=['name','goal','level','where'];
 function renderProfile(){fields.forEach(f=>$(f).value=db.profile[f]??'');$('profilename').textContent=db.profile.name||'Mon profil';renderSports()}
 function saveProfile(){fields.forEach(f=>{const v=$(f).value.trim();db.profile[f]=textFields.includes(f)?v.slice(0,60):(v===''?'':num(v))});db.profile.minor=num(db.profile.age)>0&&num(db.profile.age)<18;save();render();toast('Profil enregistré')}
 const SPORTS={
@@ -1554,7 +1563,7 @@ function bilan(){
   lines.push(sl.length?`• Sommeil moyen : ${avg.toFixed(1).replace('.',',')} h sur ${sl.length} nuit${sl.length>1?'s':''} ${avg>=7?'✅':'— essaie de viser 7 h ou plus'}`:'• Sommeil : aucune nuit saisie cette semaine');
   if(recent.length>1){const d=+(recent.at(-1).kg-recent[0].kg).toFixed(1);lines.push(`• Poids sur 30 jours : ${d>0?'+':''}${String(d).replace('.',',')} kg`)}
   const cal=calOn(today()),cg=num(db.profile.calgoal);lines.push(cg?`• Aujourd'hui : ${cal} / ${cg} kcal`:"• Fixe un objectif de calories dans ton profil pour que je le suive");
-  const hk=Object.entries(db.health||{}).filter(([k])=>k>=dateKey(daysAgo(6)));if(hk.length){const avg=Math.round(hk.reduce((a,[,v])=>a+num(v.steps),0)/hk.length);lines.push(`• Pas : ${avg.toLocaleString('fr-FR')} par jour en moyenne ${avg>=8000?'👟':''}`)}
+  const hk=Object.entries(db.health||{}).filter(([k])=>k>=dateKey(daysAgo(6)));if(hk.length){const avg=Math.round(hk.reduce((a,[,v])=>a+num(v.steps),0)/hk.length);const okd=hk.filter(([,v])=>num(v.steps)>=stepGoal()).length;lines.push(`• Pas : ${fmtInt(avg)} par jour en moyenne, objectif atteint ${okd} jour${okd>1?'s':''} sur ${hk.length} ${avg>=stepGoal()?'👟':''}`)}
   const st=streak();if(st)lines.push(`• Série : ${st} semaine${st>1?'s':''} d’affilée 🔥`);
   lines.push(ws.length>=goal?'Continue comme ça !':ws.length?'Bon rythme, on garde le cap 💪':"Pas encore de séance cette semaine : on s'y met ? 🔥");
   return lines.join('<br>');
@@ -1608,8 +1617,8 @@ function peek(html){
 /* ---------- Visite guidée ---------- */
 const TOUR=[
   ['Accueil','#hero','home',"Bienvenue dans ATHLETIQ ! Chaque jour, je te propose ici <b>la séance à faire</b> : celle que tu n'as pas faite depuis le plus longtemps. Un appui sur « Lancer » et c'est parti."],
-  ['Accueil','#rings','home',"Tes <b>3 anneaux</b> : <span style='color:#caff12'>vert</span> pour tes séances de la semaine, <span style='color:#ff3d7f'>rose</span> pour tes calories du jour, <span style='color:#b97cff'>violet</span> pour ton sommeil. Le but : les fermer tous !"],
-  ['Accueil','#motiv','home',"Ta <b>série 🔥</b> compte les semaines d'affilée où tu tiens ton objectif. À côté, tes <b>badges 🏅</b> : 12 à débloquer, je te préviens à chaque nouveau."],
+  ['Accueil','#rings','home',"Tes <b>4 anneaux</b> : <span style='color:#caff12'>vert</span> pour tes séances de la semaine, <span style='color:#ff3d7f'>rose</span> pour tes calories du jour, <span style='color:#b97cff'>violet</span> pour ton sommeil et <span style='color:#4fa8ff'>bleu</span> pour tes pas (8 000 minimum par jour). Le but : les fermer tous !"],
+  ['Accueil','#motiv','home',"Ta <b>série 🔥</b> compte les semaines d'affilée où tu tiens ton objectif. À côté, tes <b>badges 🏅</b> à débloquer, je te préviens à chaque nouveau."],
   ['Accueil','#weekchart','home',"Ta semaine en un coup d'œil : le nombre de séries terminées chaque jour."],
   ['Accueil','#worktiles','home',"Toutes tes séances. Filtre-les par haut du corps, jambes ou cardio, et appuie sur une pour la lancer."],
   ['Séances','#trainchips','training',`Ici, des <b>programmes prêts</b> (${PROGRAMS.length} au choix : salle, maison, course, prépa foot…) ou ta propre séance de A à Z.`],
@@ -1620,7 +1629,7 @@ const TOUR=[
   ['Nutrition','#calring','nutrition',"Ton <b>anneau de calories</b> : ce qu'il te reste à manger aujourd'hui selon ton objectif (à régler dans ton profil)."],
   ['Nutrition','#macros','nutrition',"Tes <b>macros</b> : protéines, glucides et lipides restants pour la journée."],
   ['Nutrition','#addmealbtn','nutrition',"Pour ajouter un repas : tes <b>favoris ⭐</b> et <b>récents</b> en un appui, ou une <b>recherche d'aliments</b> qui calcule les calories selon la quantité."],
-  ['Santé','#hkcard','health',"Relie <b>Apple Santé</b> et ton <b>Apple Watch</b> : tes pas, calories actives, minutes d'exercice, FC au repos, sommeil et poids arrivent ici. Appuie sur « Connecter » pour le guide."],
+  ['Santé','#hkcard','health',"Relie <b>Apple Santé</b> et ton <b>Apple Watch</b> : tes pas, calories actives, minutes d'exercice, FC au repos, sommeil et poids arrivent ici. Pas de montre ? Saisis tes pas à la main. Objectif santé : <b>8 000 pas par jour</b>."],
   ['Santé','#sleepchart','health',"Note tes nuits ici : je te montre tes 7 dernières nuits, ta moyenne et la ligne des 8 h."],
   ['Santé','#recovcard','health',"Et ta <b>récupération ressentie</b> sur 10, pour savoir quand pousser et quand lever le pied."],
   ['Progrès','#goalcard','progress',"Ton <b>objectif de la semaine</b> en pourcentage."],
