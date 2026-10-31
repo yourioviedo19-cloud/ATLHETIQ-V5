@@ -280,6 +280,11 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
 .hkgrid span{font-size:12px;color:var(--muted)}
 .cbars.pink .cbar i{background:linear-gradient(180deg,#ff9cbd,#a3204f)}.cbars.pink .cbar.on i{background:linear-gradient(180deg,#ff6b9b,#ff2d6f);box-shadow:0 0 18px #ff3d7f66}
 .code{font:12px ui-monospace,Menlo,monospace;background:#0e100d;border:1px solid #2c3029;border-radius:10px;padding:8px 10px;word-break:break-all;color:#dff5a0;user-select:all}
+/* Sommeil */
+.formgrid>div{min-width:0}
+.timein{min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;font-size:20px;font-weight:750;text-align:center;font-variant-numeric:tabular-nums;padding:12px 8px}
+.sleepcalc{margin-top:12px;background:#1d1528;border:1px solid #3e2a55;border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sleepcalc strong{font-size:24px;color:#d6b8ff;font-variant-numeric:tabular-nums}.sleepcalc span{font-size:12px;color:var(--muted)}
 /* Records, bibliothèque, motivation */
 .lastline{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px}
 .lastline span{font-size:12px;padding:6px 11px;border-radius:10px;background:#1f231d;color:#cfd3ca}
@@ -401,13 +406,18 @@ label{display:block;font-size:13px;color:#bec3b7;margin:13px 0 6px}
   </div>
   <div class="card">
     <h2>Enregistrer ma nuit</h2>
-    <div class="formgrid"><div><label for="sleepdate">Date</label><input class="input" type="date" id="sleepdate"></div><div><label for="sleephours">Durée (heures)</label><input class="input" type="number" min="0" max="24" step="0.25" id="sleephours" placeholder="7.5"></div></div>
+    <label for="sleepdate">Nuit se terminant le (jour du réveil)</label><input class="input" type="date" id="sleepdate">
+    <div class="formgrid">
+      <div><label for="bedtime">🌙 Couché à</label><input class="input timein" type="time" id="bedtime" value="23:00" oninput="sleepPreview()"></div>
+      <div><label for="waketime">☀️ Réveillé à</label><input class="input timein" type="time" id="waketime" value="07:00" oninput="sleepPreview()"></div>
+    </div>
+    <div class="sleepcalc" id="sleepcalc"></div>
     <label for="recoveryinput">Récupération ressentie (1 à 10)</label>
     <input class="input" type="range" min="1" max="10" id="recoveryinput" value="7" oninput="$('recoverylabel').textContent=this.value+'/10'">
     <p class="muted small" id="recoverylabel">7/10</p>
     <button class="btn full" style="margin-top:15px" onclick="saveSleep()">Enregistrer</button>
   </div>
-  <p class="notice">ATHLETIQ ne mesure pas automatiquement le sommeil ni la fréquence cardiaque : les données viennent de ce que tu saisis, et ce n'est pas un avis médical.</p>
+  <p class="notice">Tes données viennent de ce que tu saisis ou importes depuis Apple Santé. Elles servent à suivre tes habitudes, ce n'est pas un avis médical.</p>
 </section>
 
 <!-- PROGRÈS -->
@@ -1130,7 +1140,12 @@ function renderHealth(){renderHK();
   const rc=s&&num(s.recovery)?s.recovery:null;
   $('recovsvg').innerHTML=ringSVG([{color:'#a04dff',pct:rc?rc/10:0}],96,10)+`<b>${rc??'—'}</b>`;
   $('recoveryvalue').textContent=rc?rc+'/10':'—';
-  $('sleeptotal').textContent='Dernière nuit : '+(s?String(s.hours).replace('.',',')+' h':'—');
+  $('sleeptotal').textContent='Dernière nuit : '+(s?fmtDur(s.hours)+(s.bed?` (${s.bed} → ${s.wake})`:''):'—');
+  const tw=db.sleep.filter(x=>x.bed&&x.date>=dateKey(daysAgo(13)));
+  if(tw.length>=2){const avgT=arr=>{const m=arr.map(t=>{let [h,mi]=t.split(':').map(Number),v=h*60+mi;if(v<720&&arr===beds)v+=1440;return v});let a=Math.round(m.reduce((x,y)=>x+y,0)/m.length)%1440;return String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0')};const beds=tw.map(x=>x.bed),wakes=tw.map(x=>x.wake);
+    $('sleeptotal').innerHTML=escapeHtml($('sleeptotal').textContent)+`<br>Horaires moyens : 🌙 ${avgT(beds)} → ☀️ ${avgT(wakes)}`}
+  if(!$('bedtime').dataset.init){$('bedtime').dataset.init=1;if(db.coach.lastBed)$('bedtime').value=db.coach.lastBed;if(db.coach.lastWake)$('waketime').value=db.coach.lastWake}
+  sleepPreview();
   if(!$('sleepdate').value)$('sleepdate').value=today();
 }
 /* Import Apple Santé : format « ATHLETIQ:pas=8432;kcal=512;min=34;fc=58;sommeil=7,4;poids=74,2;date=2026-10-31 » */
@@ -1187,7 +1202,18 @@ function healthGuide(){
 }
 // Import par lien (#sante=...)
 function hashHealth(delay=1800){const h=location.hash;if(!/^#sante=/i.test(h))return;const o=parseHealth(h.slice(7));history.replaceState(null,'',location.pathname+location.search);if(!o)return;const d=applyHealth(o);setTimeout(()=>{tab('health');peek(`❤️ <b>Données Apple Santé importées</b><br>${d.join(' · ')}`)},delay)}
-function saveSleep(){const hours=Number($('sleephours').value),date=$('sleepdate').value;if(!date||!$('sleephours').value||!Number.isFinite(hours)||hours<0||hours>24)return toast('Entre une durée valide (0 à 24 h)');db.sleep=db.sleep.filter(x=>x.date!==date);db.sleep.push({date,hours,recovery:num($('recoveryinput').value)});save();render();animateIn($('health'));toast('Nuit enregistrée ☾');setTimeout(checkBadges,1500)}
+function sleepHours(b,w){const [bh,bm]=b.split(':').map(Number),[wh,wm]=w.split(':').map(Number);if([bh,bm,wh,wm].some(x=>!Number.isFinite(x)))return null;let m=(wh*60+wm)-(bh*60+bm);if(m<=0)m+=1440;return +(m/60).toFixed(2)}
+const fmtDur=h=>{const t=Math.round(h*60);return Math.floor(t/60)+' h '+String(t%60).padStart(2,'0')};
+function sleepPreview(){const h=sleepHours($('bedtime').value||'',$('waketime').value||'');const el=$('sleepcalc');if(!el)return;
+  if(h==null){el.innerHTML='<span>Indique tes deux heures</span>';return}
+  const tip=h<6?'Nuit courte : essaie de te coucher un peu plus tôt 😴':h<7?'Pas mal, vise 7 à 9 h':h<=9?'Belle nuit ✅':'Longue nuit, ton corps en avait besoin';
+  el.innerHTML=`<div><span>DURÉE DE SOMMEIL</span><br><strong>${fmtDur(h)}</strong></div><span style="text-align:right;max-width:55%">${tip}</span>`}
+function saveSleep(){
+  const date=$('sleepdate').value,b=$('bedtime').value,w=$('waketime').value,hours=sleepHours(b||'',w||'');
+  if(!date||hours==null)return toast('Indique l’heure du coucher et du réveil');
+  if(hours>16)return toast('Plus de 16 h : vérifie tes heures');
+  db.sleep=db.sleep.filter(x=>x.date!==date);db.sleep.push({date,hours,bed:b,wake:w,recovery:num($('recoveryinput').value)});db.coach.lastBed=b;db.coach.lastWake=w;
+  save();render();animateIn($('health'));toast('Nuit enregistrée ☾ '+fmtDur(hours));setTimeout(checkBadges,1500)}
 
 /* ---------- Progrès ---------- */
 function renderProgress(){
@@ -1630,7 +1656,7 @@ const TOUR=[
   ['Nutrition','#macros','nutrition',"Tes <b>macros</b> : protéines, glucides et lipides restants pour la journée."],
   ['Nutrition','#addmealbtn','nutrition',"Pour ajouter un repas : tes <b>favoris ⭐</b> et <b>récents</b> en un appui, ou une <b>recherche d'aliments</b> qui calcule les calories selon la quantité."],
   ['Santé','#hkcard','health',"Relie <b>Apple Santé</b> et ton <b>Apple Watch</b> : tes pas, calories actives, minutes d'exercice, FC au repos, sommeil et poids arrivent ici. Pas de montre ? Saisis tes pas à la main. Objectif santé : <b>8 000 pas par jour</b>."],
-  ['Santé','#sleepchart','health',"Note tes nuits ici : je te montre tes 7 dernières nuits, ta moyenne et la ligne des 8 h."],
+  ['Santé','#sleepchart','health',"Note tes nuits avec ton <b>heure de coucher et de réveil</b> : je calcule la durée, et je te montre tes 7 dernières nuits, tes horaires moyens et la ligne des 8 h."],
   ['Santé','#recovcard','health',"Et ta <b>récupération ressentie</b> sur 10, pour savoir quand pousser et quand lever le pied."],
   ['Progrès','#goalcard','progress',"Ton <b>objectif de la semaine</b> en pourcentage."],
   ['Progrès','#streakcard','progress',"Ta <b>série</b> sur les 8 dernières semaines : chaque barre verte est une semaine réussie."],
