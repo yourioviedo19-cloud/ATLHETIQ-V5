@@ -1718,7 +1718,12 @@ else{
     if(db.sessions.length>=3&&old&&db.coach.backupNag!==wk&&db.coach.backupNag!==dateKey(weekStart(new Date()))){db.coach.backupNag=dateKey(weekStart(new Date()));save();
       setTimeout(()=>{peek(`💾 <b>Pense à ta sauvegarde</b><br>${le?'Ta dernière date du '+fmtDate(le):'Tu n\u2019en as jamais fait'}. Tes données ne sont que sur ce téléphone.<br><span class="muted small">Appuie pour exporter</span>`);$('coachpeek').onclick=()=>{$('peekhost').innerHTML='';tab('profile');setTimeout(()=>exportData(),400)}},1900)}}
 }
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+if('serviceWorker'in navigator){
+  // Quand une nouvelle version est installée, on recharge une fois pour l'afficher tout de suite
+  const hadCtrl=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadCtrl&&!reloaded&&!fx&&!sessionRunning){reloaded=true;location.reload()}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{})})}).catch(()=>{}));
+}
 </script>
 </body>
 </html>
